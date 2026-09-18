@@ -1,12 +1,12 @@
 """Module-level Python API for seriousdb"""
 
-from threading import lock
+from threading import Lock
 
 from .cache import Cache
 from .config import DB_FILE
 
 _cache = Cache()
-_load_lock = lock()
+_load_lock = Lock()
 
 def _ensure_loaded() -> Cache:
     """Return the Module-level cache, loading it form disk on first use."""
