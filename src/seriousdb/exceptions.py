@@ -1,5 +1,11 @@
 """Application-specific exceptions."""
 
+__all__ = [
+    "ApplicationError",
+    "ResourceNotFoundError",
+    "ServiceUnavailableError",
+]
+
 
 class ApplicationError(Exception):
     """Base class for expected application errors.

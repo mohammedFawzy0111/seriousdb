@@ -17,8 +17,16 @@ from seriousdb.api import (
     get_bulk,
     set,
 )
+from seriousdb.exceptions import (
+    ApplicationError,
+    ResourceNotFoundError,
+    ServiceUnavailableError,
+)
 
 __all__ = [
+    "ApplicationError",
+    "ResourceNotFoundError",
+    "ServiceUnavailableError",
     "count",
     "delete",
     "exists",
