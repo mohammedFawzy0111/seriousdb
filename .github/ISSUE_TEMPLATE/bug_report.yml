@@ -44,7 +44,7 @@ body:
         seriousdb version or commit:
         Python version:
         Operating system:
-        Installation method (uv, Nix, or other):
+        Installation method (uv or other):
   - type: textarea
     id: context
     attributes:

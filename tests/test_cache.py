@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pytest import MonkeyPatch
 
-from seriousdb.cache import COMPACTION_THRESHOLD, Cache, require_db
+from seriousdb.cache import COMPACTION_THRESHOLD, Cache
 from seriousdb.exceptions import ResourceNotFoundError, ServiceUnavailableError
 from seriousdb.wal import SetEntry
 
@@ -145,7 +145,7 @@ def test_load_rejects_non_object_json(db_path):
 
 
 def test_require_db_returns_loaded_database(cache):
-    assert require_db(cache) is cache.db
+    assert cache._require_db() is cache.db
 
 
 def test_require_db_raises_when_database_is_not_loaded():
@@ -156,7 +156,7 @@ def test_require_db_raises_when_database_is_not_loaded():
         ServiceUnavailableError,
         match=r"\.sdb",
     ):
-        require_db(cache)
+        cache._require_db()
 
 
 def test_compaction_triggers_at_write_threshold(db_path):

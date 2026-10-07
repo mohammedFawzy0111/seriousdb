@@ -33,100 +33,38 @@ seriousdb.set("name", "Alice")
 seriousdb.get("name")
 ```
 
-## Nix
-
-> The project provides a Nix development environment with the tools required for local development.
-
-### Enter Nix develop
-
-From the project root, run:
-
-```bash
-nix develop
-```
-
-This starts a shell with the project's development dependencies available.
-
-### Nix (in the Nix Shell)
-
-```bash
-python
-```
-
-Then import and use `seriousdb` as shown above.
-
 ## Formatting
 
 ### Format Python files with `ruff`:
-
-#### uv
 
 ```bash
 uv run ruff format .
 ```
 
-### Nix (in Nix Shell)
-
-```bash
-ruff format .
-```
-
 ### To check formatting without changing files:
-
-#### uv
 
 ```bash
 uv run ruff format --check .
-```
-
-### Nix (in Nix Shell)
-
-```bash
-ruff format --check .
 ```
 
 ## Linting
 
 ### Lint python files with `ruff`:
 
-#### uv
-
 ```bash
 uv run ruff check .
 ```
 
-#### Nix (in Nix Shell)
-
-```bash
-ruff check .
-```
-
 ### Type checking with `ty`
-
-#### uv
 
 ```bash
 uv run ty check .
 ```
 
-#### Nix (in Nix Shell)
-
-```bash
-ty check .
-```
-
 ### To fix linter errors and warning if possible run following command:
-
-#### uv
 
 ```bash
 uv run ruff check --fix .
-```
-
-### Nix (in Nix Shell)
-
-```bash
-ruff check --fix .
 ```
 
 ## Docstrings
@@ -178,17 +116,9 @@ files under it by hand: edit the docstring instead and regenerate.
 
 ### Regenerate
 
-#### uv
-
 ```bash
 uv sync --group docs
 uv run --group docs python scripts/docs-reference.py
-```
-
-#### Nix (in Nix Shell)
-
-```bash
-python scripts/docs-reference.py
 ```
 
 Commit any resulting changes under `docs/reference/` along with your docstring change. CI (see

@@ -83,7 +83,7 @@ class Cache:
             If the write-ahead log cannot be written. `self.db` is left unchanged in this case.
         """
         with self.lock:
-            db = require_db(self)
+            db = self._require_db()
             is_new_key = key not in db
             self._record_write(SetEntry(key=key, value=value))
             db[key] = value
@@ -111,7 +111,7 @@ class Cache:
             If no database has been loaded.
         """
         with self.lock:
-            val = require_db(self).get(key, None)
+            val = self._require_db().get(key, None)
         if val is None:
             logger.debug("Key not found: %s", key)
             raise ResourceNotFoundError(f"No value set for key {key}")
@@ -145,7 +145,7 @@ class Cache:
             If the write-ahead log cannot be written. `self.db` is left unchanged in this case.
         """
         with self.lock:
-            db = require_db(self)
+            db = self._require_db()
             val = db.get(key, None)
             if val is not None:
                 self._record_write(DeleteEntry(key=key))
@@ -175,7 +175,7 @@ class Cache:
             If no database has been loaded.
         """
         with self.lock:
-            return key in require_db(self)
+            return key in self._require_db()
 
     def __contains__(self, key: str) -> bool:
         """Return whether `key` exists in the database.
@@ -211,7 +211,7 @@ class Cache:
             If no database has been loaded.
         """
         with self.lock:
-            return require_db(self).copy()
+            return self._require_db().copy()
 
     def get_bulk(self, keys: Iterable[str]) -> dict[str, str]:
         """Return the values stored under multiple keys.
@@ -235,7 +235,7 @@ class Cache:
         """
         key_list = tuple(keys)
         with self.lock:
-            db = require_db(self)
+            db = self._require_db()
             return {key: db[key] for key in key_list if key in db}
 
     def count(self) -> int:
@@ -252,7 +252,7 @@ class Cache:
             If no database has been loaded.
         """
         with self.lock:
-            return len(require_db(self))
+            return len(self._require_db())
 
     def __len__(self) -> int:
         """Return the number of key-value pairs in the database.
@@ -325,7 +325,7 @@ class Cache:
             replayed = self.wal.replay()
             self._writes_since_compact = len(replayed)
             for entry in replayed:
-                entry.apply(require_db(self))
+                entry.apply(self._require_db())
 
     def flush(self) -> None:
         """No-op, kept for backward compatibility.
@@ -355,7 +355,7 @@ class Cache:
         OSError
             If the write-ahead log cannot be written.
         """
-        require_wal(self).append(entry)
+        self._require_wal().append(entry)
         self._writes_since_compact += 1
 
     def _safe_maybe_compact(self) -> None:
@@ -398,6 +398,53 @@ class Cache:
             self.wal.clear()
 
         self._writes_since_compact = 0
+
+    def _require_db(self) -> dict[str, str]:
+        """Validate and return the loaded data.
+
+        The caller must hold ``lock`` while using the returned ``dict``.
+
+        Returns
+        -------
+        dict of str to str
+            The loaded key-value pairs. This is the cache's own ``dict``, not a
+            copy.
+
+        Raises
+        ------
+        ServiceUnavailableError
+            If no database is loaded.
+        """
+        if self.db is None:
+            logger.error("Database unavailable: %s", self.filename)
+            raise ServiceUnavailableError(
+                f"Database file {self.filename} could not be opened and loaded"
+            )
+
+        return self.db
+
+    def _require_wal(self) -> WriteAheadLog:
+        """Validate and return the write-ahead log.
+
+        The caller must hold ``lock`` while using the returned log.
+
+        Returns
+        -------
+        WriteAheadLog
+            The cache's write-ahead log.
+
+        Raises
+        ------
+        ServiceUnavailableError
+            If no database is loaded.
+        """
+        if self.wal is None:
+            logger.error("Write-ahead log unavailable: %s", self.filename)
+            raise ServiceUnavailableError(
+                f"Database file {self.filename} could not be opened and loaded"
+            )
+
+        return self.wal
 
 
 def _atomic_write_json(filename: str, data: dict[str, str]) -> None:
@@ -456,62 +503,3 @@ def _generate_corrupt_backup_path(filename: str) -> str:
     while os.path.lexists(f"{base}-{counter}"):
         counter += 1
     return f"{base}-{counter}"
-
-
-def require_db(cache: Cache) -> dict[str, str]:
-    """Return the loaded data of `cache`.
-
-    The caller must hold ``cache.lock`` while using the returned ``dict``.
-
-    Parameters
-    ----------
-    cache : Cache
-        Cache to read the data from.
-
-    Returns
-    -------
-    dict of str to str
-        The loaded key-value pairs. This is the cache's own ``dict``, not a
-        copy.
-
-    Raises
-    ------
-    ServiceUnavailableError
-        If `cache` has no database loaded.
-    """
-    if cache.db is None:
-        logger.error("Database unavailable: %s", cache.filename)
-        raise ServiceUnavailableError(
-            f"Database file {cache.filename} could not be opened and loaded"
-        )
-
-    return cache.db
-
-
-def require_wal(cache: Cache) -> WriteAheadLog:
-    """Return the write-ahead log of `cache`.
-
-    The caller must hold ``cache.lock`` while using the returned log.
-
-    Parameters
-    ----------
-    cache : Cache
-        Cache to read the write-ahead log from.
-
-    Returns
-    -------
-    WriteAheadLog
-        The cache's write-ahead log.
-
-    Raises
-    ------
-    ServiceUnavailableError
-        If `cache` has no database loaded.
-    """
-    if cache.wal is None:
-        logger.error("Write-ahead log unavailable: %s", cache.filename)
-        raise ServiceUnavailableError(
-            f"Database file {cache.filename} could not be opened and loaded"
-        )
-
-    return cache.wal

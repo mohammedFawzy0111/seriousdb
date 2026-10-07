@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from seriousdb.cache import Cache, require_db
+from seriousdb.cache import Cache
 from seriousdb.exceptions import ServiceUnavailableError
 from seriousdb.logging_config import configure_logging
 
@@ -96,9 +96,9 @@ class TestCacheLogging:
         cache = Cache()
         cache.filename = "missing.sdb"
         with pytest.raises(ServiceUnavailableError, match="missing.sdb"):
-            require_db(cache)
+            cache._require_db()
 
     def test_require_db_returns_db_when_loaded(self):
         cache = Cache()
         cache.db = {"a": "b"}
-        assert require_db(cache) is cache.db
+        assert cache._require_db() is cache.db

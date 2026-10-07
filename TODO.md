@@ -1,5 +1,0 @@
-# TODO
-
-## General
-
-- [] Choose logo
