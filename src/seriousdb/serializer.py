@@ -24,6 +24,8 @@ from .storage_format import (
     PAGE_SIZE,
     SLOT_FORMAT,
     SLOT_SIZE,
+    InternalNode,
+    LeafNode,
     Node,
     SdbMetadata,
     Slot,
@@ -70,39 +72,36 @@ class PageSerializer:
         if node.page_id == 0:
             raise SerializationError("page 0 is reserved for database metadata")
 
-        if node.leaf:
-            if node.children_ids or node.leftmost_child_id != 0:
-                raise SerializationError("leaf nodes cannot have child IDs")
+        records: list[bytes] = []
+        page_type: bytes = b""
+        next_page_id: UInt32 = UInt32(0)
+        leftmost_child_id: UInt32 = UInt32(0)
 
-            if not 0 <= node.next_page_id <= 0xFFFFFFFF:
-                raise SerializationError("invalid next page ID")
-
+        if isinstance(node, LeafNode):
             if len(node.keys) != len(node.values):
                 raise SerializationError(
                     "leaf keys and values must have the same length"
                 )
-        else:
-            if node.values or node.next_page_id != 0:
-                raise SerializationError(
-                    "internal nodes cannot have values or a next-page ID"
-                )
+            for key, value in zip(node.keys, node.values):
+                records.append(cls._serialize_leaf_record(key, value))
 
-            if not 0 <= node.leftmost_child_id <= 0xFFFFFFFF:
-                raise SerializationError("invalid leftmost child ID")
+            page_type = LEAF_PAGE
+            next_page_id = node.next_page_id
+            leftmost_child_id = UInt32(0)
 
-            if len(node.children_ids) != len(node.keys):
+        elif isinstance(node, InternalNode):
+            if len(node.keys) != len(node.children_ids):
                 raise SerializationError(
                     "internal nodes must have one child ID for each key"
                 )
-
-        records: list[bytes] = []
-
-        if node.leaf:
-            for key, value in zip(node.keys, node.values):
-                records.append(cls._serialize_leaf_record(key, value))
-        else:
             for key, child_id in zip(node.keys, node.children_ids):
                 records.append(cls._serialize_internal_record(key, child_id))
+
+            page_type = INTERNAL_PAGE
+            next_page_id = UInt32(0)
+            leftmost_child_id = node.leftmost_child_id
+        else:
+            raise SerializationError(f"unsupported node type: {type(node).__name__}")
 
         slot_count = len(records)
         free_start = PAGE_HEADER_SIZE + slot_count * SLOT_SIZE
@@ -141,16 +140,14 @@ class PageSerializer:
                 slot.length,
             )
 
-        page_type: bytes = LEAF_PAGE if node.leaf else INTERNAL_PAGE
-
         header = struct.pack(
             PAGE_HEADER_FORMAT,
             page_type,
             slot_count,
             free_start,
             free_end,
-            node.next_page_id if node.leaf else 0,
-            node.leftmost_child_id if not node.leaf else 0,
+            next_page_id,
+            leftmost_child_id,
         )
 
         page[:PAGE_HEADER_SIZE] = header
@@ -234,12 +231,10 @@ class PageSerializer:
                 keys.append(key)
                 values.append(value)
 
-            return Node(
+            return LeafNode(
                 page_id=UInt32(page_id),
-                leaf=True,
                 keys=keys,
                 values=values,
-                children_ids=[],
                 next_page_id=UInt32(next_page_id),
             )
 
@@ -253,11 +248,9 @@ class PageSerializer:
             keys.append(key)
             children_ids.append(child_id)
 
-        return Node(
+        return InternalNode(
             page_id=UInt32(page_id),
-            leaf=False,
             keys=keys,
-            values=[],
             children_ids=[UInt32(child_id) for child_id in children_ids],
             leftmost_child_id=UInt32(leftmost_child_id),
         )

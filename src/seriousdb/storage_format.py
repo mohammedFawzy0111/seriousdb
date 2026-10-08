@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import struct
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, TypeAlias
 
 from seriousdb.types import UInt8, UInt16, UInt32
 
@@ -143,17 +143,31 @@ def _zero_uint32() -> UInt32:
 
 
 @dataclass(slots=True)
-class Node:
-    """In-memory representation of a B+ tree page."""
+class LeafNode:
+    """Base class for a leaf node."""
 
     page_id: UInt32
-    leaf: bool
     keys: list[bytes]
     values: list[bytes]
-    children_ids: list[UInt32]
     # hacky way to give default value with "function call" to make ruff happpy
     next_page_id: UInt32 = field(default_factory=_zero_uint32)
+
+
+@dataclass(slots=True)
+class InternalNode:
+    """Base class for Internal node."""
+
+    page_id: UInt32
+    keys: list[bytes]
+    children_ids: list[UInt32]
     leftmost_child_id: UInt32 = field(default_factory=_zero_uint32)
+
+    def all_children_ids(self) -> list[UInt32]:
+        """Return all child IDs in key order."""
+        return [self.leftmost_child_id, *self.children_ids]
+
+
+Node: TypeAlias = LeafNode | InternalNode
 
 
 @dataclass(slots=True)
